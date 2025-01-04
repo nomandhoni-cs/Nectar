@@ -1,5 +1,4 @@
 import CouponSuggestions from "@/components/CouponSuggestions";
-import "./App.css";
 
 function App() {
   return (

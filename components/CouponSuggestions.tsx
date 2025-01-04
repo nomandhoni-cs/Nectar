@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import Gun from "gun";
-// import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-// import { input } from "@/components/ui/input";
-// import { button } from "@/components/ui/button";
-// import { textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "./ui/scroll-area";
 
 // Initialize Gun
 const gun = Gun({
@@ -102,26 +103,26 @@ const CouponSuggestions = () => {
   };
 
   return (
-    <div className="w-96">
-      <div>
+    <Card className="w-96">
+      <CardHeader>
         <div className="flex justify-between items-center">
-          <div>Coupons for {currentWebsite}</div>
-          <button
-            // variant="outline"
+          <CardTitle>Coupons for {currentWebsite}</CardTitle>
+          <Button
+            variant="outline"
             onClick={() => setShowAddForm(!showAddForm)}
           >
             {showAddForm ? "Cancel" : "Add Coupon"}
-          </button>
+          </Button>
         </div>
-      </div>
-      <div>
+      </CardHeader>
+      <CardContent>
         {showAddForm ? (
           <form onSubmit={handleAddCoupon} className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-1">
                 Coupon Code
               </label>
-              <input
+              <Input
                 value={newCoupon.code}
                 onChange={(e) =>
                   setNewCoupon((prev) => ({ ...prev, code: e.target.value }))
@@ -134,7 +135,7 @@ const CouponSuggestions = () => {
               <label className="block text-sm font-medium mb-1">
                 Description
               </label>
-              <textarea
+              <Textarea
                 value={newCoupon.description}
                 onChange={(e) =>
                   setNewCoupon((prev) => ({
@@ -146,9 +147,9 @@ const CouponSuggestions = () => {
                 required
               />
             </div>
-            <button type="submit" className="w-full">
+            <Button type="submit" className="w-full">
               Save Coupon
-            </button>
+            </Button>
           </form>
         ) : (
           <>
@@ -157,9 +158,9 @@ const CouponSuggestions = () => {
                 No coupons available for this site
               </p>
             ) : (
-              <div className="space-y-4">
+              <ScrollArea className="space-y-4 h-[400px]">
                 {coupons.map((coupon) => (
-                  <div key={coupon.code} className="border p-4 rounded-lg">
+                  <div key={coupon.code} className="border p-4 rounded-lg my-2">
                     <div className="flex justify-between items-center">
                       <span className="font-mono bg-gray-100 px-2 py-1 rounded">
                         {coupon.code}
@@ -181,29 +182,29 @@ const CouponSuggestions = () => {
                       {new Date(coupon.last_verified).toLocaleDateString()}
                     </div>
                     <div className="mt-2 flex space-x-2">
-                      <button
-                        // variant="outline"
-                        // size="sm"
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => submitCoupon(coupon.code, true)}
                       >
                         👍 Worked
-                      </button>
-                      <button
-                        // variant="outline"
-                        // size="sm"
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => submitCoupon(coupon.code, false)}
                       >
                         👎 Failed
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 ))}
-              </div>
+              </ScrollArea>
             )}
           </>
         )}
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 };
 

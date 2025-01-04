@@ -1,6 +1,6 @@
 {
-  "name": "nectar",
-  "description": "manifest.json description",
+  "name": "Nectar",
+  "description": "Best Coupons, Deals, Discounts, and Promotions for Everyday Shopping",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -15,6 +15,7 @@
     "postinstall": "wxt prepare"
   },
   "dependencies": {
+    "@radix-ui/react-scroll-area": "^1.2.2",
     "@radix-ui/react-slot": "^1.1.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
