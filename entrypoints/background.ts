@@ -3,6 +3,7 @@ import Gun from "gun";
 // Initialize Gun.js with relay peers
 const gun = Gun({
   peers: ["https://gun-manhattan.herokuapp.com/gun"],
+  web: true,
 });
 
 export default defineBackground(() => {
