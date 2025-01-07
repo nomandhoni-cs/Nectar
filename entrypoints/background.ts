@@ -4,9 +4,15 @@ const gun = Gun({
   peers: ["https://gun-manhattan.herokuapp.com/gun"],
   web: true,
   localStorage: true, // This ensures the data is saved in the browser's localStorage
+  radisk: true,
 });
 
 export default defineBackground(() => {
+  browser.runtime.onInstalled.addListener(() => {
+    // Open Options Page in new tab
+    browser.tabs.create({ url: "options.html" });
+  });
+
   // Listen for messages from content scripts
   browser.runtime.onMessage.addListener(async (message, sender) => {
     if (message.type === "NEW_COUPON") {

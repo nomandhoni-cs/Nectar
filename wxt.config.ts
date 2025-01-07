@@ -6,5 +6,8 @@ export default defineConfig({
   modules: ["@wxt-dev/module-react"],
   manifest: {
     permissions: ["storage", "webRequest", "tabs", "activeTab"],
+    optionsPage: {
+      path: "options.html",
+    },
   },
 });
