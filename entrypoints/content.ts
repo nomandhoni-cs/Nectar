@@ -1,3 +1,6 @@
+import { SUCCESS_PATTERNS } from "@/lib/constants/couponPatterns";
+import { sanitizeWebsiteData } from "@/lib/utils/privacy";
+
 export default defineContentScript({
   matches: ["*://*/*"],
   async main(ctx) {
@@ -35,22 +38,32 @@ export default defineContentScript({
       }
     });
 
-    // Watch for successful coupon applications
+    const checkCouponSuccess = (): boolean => {
+      // Check class-based selectors
+      const classMatch = SUCCESS_PATTERNS.selectors.some((selector) =>
+        document.querySelector(selector)
+      );
+      if (classMatch) return true;
+
+      // Check text content
+      const textMatch = SUCCESS_PATTERNS.textContent.some((text) =>
+        document.body.innerText.toLowerCase().includes(text)
+      );
+
+      return textMatch;
+    };
+
+    // Update the mutation observer to use the new success check
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
-        if (mutation.type === "childList") {
-          // Look for success messages (customize based on target websites)
-          const successMessage = document.querySelector(
-            '[class*="success"], [class*="discount-applied"]'
-          );
-          if (successMessage) {
-            // Report successful coupon application
-            browser.runtime.sendMessage({
-              type: "COUPON_SUCCESS",
-              website: window.location.hostname,
-              timestamp: new Date().toISOString(),
-            });
-          }
+        if (mutation.type === "childList" && checkCouponSuccess()) {
+          // Report successful coupon application with sanitized data
+          const websiteData = sanitizeWebsiteData(window.location.href);
+          browser.runtime.sendMessage({
+            type: "COUPON_SUCCESS",
+            website: websiteData.domain,
+            timestamp: new Date().toISOString(),
+          });
         }
       });
     });

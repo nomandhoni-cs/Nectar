@@ -1,5 +1,9 @@
 import { useState, useEffect } from "react";
-import Gun from "gun";
+import {
+  initGun,
+  subscribeToCoupons,
+  updateCouponData,
+} from "@/lib/utils/gunUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -8,9 +12,7 @@ import { ScrollArea } from "./ui/scroll-area";
 import { Copy, CopyIcon, Triangle } from "lucide-react";
 
 // Initialize Gun
-const gun = Gun({
-  peers: ["https://gun-manhattan.herokuapp.com/gun"],
-});
+const gun = initGun();
 
 interface Coupon {
   code: string;
@@ -41,21 +43,39 @@ const CouponSuggestions = () => {
         const url = new URL(tabs[0].url);
         setCurrentWebsite(url.hostname);
 
-        // Fetch coupons for the current website
-        gun
+        // Clear existing coupons when website changes
+        setCoupons([]);
+
+        // Subscribe to coupons for the current website
+        const websiteNode = gun
           .get("websites")
           .get(url.hostname)
-          .get("coupons")
-          .map()
-          .on((coupon, id) => {
-            console.log(coupon);
-            if (coupon) {
-              setCoupons((prev) => {
-                const exists = prev.some((c) => c.code === coupon.code);
-                return exists ? prev : [...prev, { ...coupon, id }];
-              });
-            }
-          });
+          .get("coupons");
+
+        websiteNode.map().on((coupon, code) => {
+          if (coupon) {
+            setCoupons((prev) => {
+              // Remove existing coupon with same code if exists
+              const filtered = prev.filter((c) => c.code !== code);
+              // Add the updated coupon
+              return [
+                ...filtered,
+                {
+                  ...coupon,
+                  code,
+                  // Ensure numeric values
+                  upvoteCount: Number(coupon.upvoteCount) || 0,
+                  downvoteCount: Number(coupon.downvoteCount) || 0,
+                },
+              ];
+            });
+          }
+        });
+
+        // Return cleanup function
+        return () => {
+          websiteNode.off();
+        };
       }
     });
   }, []);
@@ -73,10 +93,24 @@ const CouponSuggestions = () => {
       addedBy: "anonymousUser",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      lastUsed: "",
+      contributorUserID: "",
+      categories: [],
+      termsAndConditions: "",
+      isVerified: false,
     };
 
-    // Save to Gun.js database
-    gun.get("websites").get(currentWebsite).get("coupons").set(couponData);
+    // Save to Gun.js database with explicit node creation
+    const couponNode = gun
+      .get("websites")
+      .get(currentWebsite)
+      .get("coupons")
+      .get(couponData.code);
+
+    // Set each property individually to ensure proper data types
+    Object.entries(couponData).forEach(([key, value]) => {
+      couponNode.get(key).put(value);
+    });
 
     // Reset form
     setNewCoupon({ code: "", description: "", expiration: "" });
@@ -93,48 +127,44 @@ const CouponSuggestions = () => {
       });
   };
   const handleUpvote = (coupon: Coupon) => {
-    // Get current coupon data to preserve other properties
     gun
       .get("websites")
       .get(currentWebsite)
       .get("coupons")
       .get(coupon.code)
-      .once((existingCoupon) => {
-        if (existingCoupon) {
-          // Increment the upvoteCount
-          const updatedUpvoteCount = existingCoupon.upvoteCount + 1;
-
-          // Update only the upvote count, keeping other properties intact
-          gun
-            .get("websites")
-            .get(currentWebsite)
-            .get("coupons")
-            .get(coupon.code)
-            .put({ ...existingCoupon, upvoteCount: updatedUpvoteCount });
-        }
+      .get("upvoteCount")
+      .once((currentCount) => {
+        // Convert to number and increment
+        const newCount = (Number(currentCount) || 0) + 1;
+        // Set the new count
+        gun
+          .get("websites")
+          .get(currentWebsite)
+          .get("coupons")
+          .get(coupon.code)
+          .get("upvoteCount")
+          .put(newCount);
       });
   };
 
   const handleDownvote = (coupon: Coupon) => {
-    // Get current coupon data to preserve other properties
     gun
       .get("websites")
       .get(currentWebsite)
       .get("coupons")
       .get(coupon.code)
-      .once((existingCoupon) => {
-        if (existingCoupon) {
-          // Increment the downvoteCount
-          const updatedDownvoteCount = existingCoupon.downvoteCount + 1;
-
-          // Update only the downvote count, keeping other properties intact
-          gun
-            .get("websites")
-            .get(currentWebsite)
-            .get("coupons")
-            .get(coupon.code)
-            .put({ ...existingCoupon, downvoteCount: updatedDownvoteCount });
-        }
+      .get("downvoteCount")
+      .once((currentCount) => {
+        // Convert to number and increment
+        const newCount = (Number(currentCount) || 0) + 1;
+        // Set the new count
+        gun
+          .get("websites")
+          .get(currentWebsite)
+          .get("coupons")
+          .get(coupon.code)
+          .get("downvoteCount")
+          .put(newCount);
       });
   };
 

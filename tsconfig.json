@@ -8,7 +8,10 @@
         "paths": {
           "@/*": [
             "./*"
-          ]
+          ],
+          "@/lib/*": ["./lib/*"],
+          "@/utils/*": ["./lib/utils/*"],
+          "@/constants/*": ["./lib/constants/*"]
         }
   }
 }
