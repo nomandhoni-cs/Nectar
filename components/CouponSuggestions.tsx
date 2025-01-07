@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "./ui/scroll-area";
-import { Copy, CopyIcon, Triangle } from "lucide-react";
+import { CopyIcon, Triangle, X } from "lucide-react";
 import { Vote } from "@/lib/types";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -229,65 +229,68 @@ const CouponSuggestions = () => {
     const userVote = userVotes[coupon.code];
 
     return (
-      <div className="flex space-x-2 mt-2">
+      <div className="flex items-center gap-1">
         <Button
-          variant={userVote?.voteType === "upvote" ? "default" : "outline"}
+          variant={userVote?.voteType === "upvote" ? "default" : "secondary"}
           size="sm"
+          className="h-7 px-2"
           onClick={() => handleVoteClick(coupon, "upvote")}
           disabled={userVote?.voteType === "downvote"}
         >
-          <Triangle className="h-4 w-4" /> {coupon.upvoteCount}
+          <Triangle className="h-3 w-3" />
+          <span className="text-xs">{coupon.upvoteCount}</span>
         </Button>
         <Button
-          variant={userVote?.voteType === "downvote" ? "default" : "outline"}
+          variant={userVote?.voteType === "downvote" ? "default" : "secondary"}
           size="sm"
+          className="h-7 px-2"
           onClick={() => handleVoteClick(coupon, "downvote")}
           disabled={userVote?.voteType === "upvote"}
         >
-          <Triangle className="h-4 w-4 rotate-180" /> {coupon.downvoteCount}
+          <Triangle className="h-3 w-3 rotate-180" />
+          <span className="text-xs">{coupon.downvoteCount}</span>
         </Button>
         {userVote && (
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
+            className="h-7 px-2"
             onClick={() => handleWithdrawVote(coupon)}
           >
-            Withdraw Vote
+            <X className="h-3 w-3 text-red-500" />
           </Button>
         )}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handleCopy(coupon.code)}
-        >
-          <CopyIcon className="h-4 w-4" />
-        </Button>
       </div>
     );
   };
 
   return (
-    <Card className="w-96">
-      <CardHeader>
+    <Card className="w-[320px] mx-auto">
+      <CardHeader className="p-3">
         <div className="flex justify-between items-center">
-          <CardTitle>Coupons for {currentWebsite}</CardTitle>
+          <CardTitle className="text-sm">
+            Coupons for {currentWebsite}
+          </CardTitle>
           <Button
             variant="outline"
+            size="sm"
+            className="h-7"
             onClick={() => setShowAddForm(!showAddForm)}
           >
-            {showAddForm ? "Cancel" : "Add Coupon"}
+            {showAddForm ? "Cancel" : "Add"}
           </Button>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-3">
         {showAddForm ? (
-          <form onSubmit={addCoupon} className="space-y-4">
+          <form onSubmit={addCoupon} className="space-y-3">
             <Input
               placeholder="Code"
               value={newCoupon.code}
               onChange={(e) =>
                 setNewCoupon({ ...newCoupon, code: e.target.value })
               }
+              className="h-8"
               required
             />
             <Textarea
@@ -296,64 +299,90 @@ const CouponSuggestions = () => {
               onChange={(e) =>
                 setNewCoupon({ ...newCoupon, description: e.target.value })
               }
+              className="h-20 min-h-[80px]"
               required
             />
-            <div className="grid gap-2">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant={"outline"}
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !date && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {date ? (
-                      format(date, "PPP")
-                    ) : (
-                      <span>Pick an expiration date</span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={date}
-                    onSelect={(newDate) => {
-                      setDate(newDate);
-                      if (newDate) {
-                        setNewCoupon({
-                          ...newCoupon,
-                          expiration: newDate.toISOString(),
-                        });
-                      }
-                    }}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            <Button type="submit" className="w-full">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={cn(
+                    "w-full justify-start text-left font-normal h-8",
+                    !date && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {date ? format(date, "PPP") : <span>Expiration date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={date}
+                  onSelect={(newDate) => {
+                    setDate(newDate);
+                    if (newDate) {
+                      setNewCoupon({
+                        ...newCoupon,
+                        expiration: newDate.toISOString(),
+                      });
+                    }
+                  }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+            <Button type="submit" className="w-full h-8">
               Save Coupon
             </Button>
           </form>
         ) : (
-          <ScrollArea className="space-y-4 h-[400px]">
-            {coupons.map((coupon) => (
-              <div key={coupon.code} className="border p-4 rounded-lg">
-                <div className="flex justify-between items-center">
-                  <span>{coupon.code}</span>
-                  <Button onClick={() => applyCoupon(coupon.code)}>
-                    Try Code
-                  </Button>
+          <ScrollArea className="h-[400px] pr-4">
+            <div className="space-y-2">
+              {coupons.map((coupon) => (
+                <div
+                  key={coupon.code}
+                  className="border rounded-lg p-2 space-y-1"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <code className="text-sm font-mono bg-muted px-1.5 py-0.5 rounded">
+                        {coupon.code}
+                      </code>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="h-7 px-2"
+                        onClick={() => handleCopy(coupon.code)}
+                      >
+                        <CopyIcon className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7"
+                      onClick={() => applyCoupon(coupon.code)}
+                    >
+                      Try
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground line-clamp-2">
+                    {coupon.description}
+                  </p>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>
+                      Expires:{" "}
+                      {coupon.expiration
+                        ? format(new Date(coupon.expiration), "PP")
+                        : "N/A"}
+                    </span>
+                    {renderVoteButtons(coupon)}
+                  </div>
                 </div>
-                <p>{coupon.description}</p>
-                <p>Expires: {coupon.expiration || "N/A"}</p>
-                <p>Status: {coupon.status}</p>
-                {renderVoteButtons(coupon)}
-              </div>
-            ))}
+              ))}
+            </div>
           </ScrollArea>
         )}
       </CardContent>
