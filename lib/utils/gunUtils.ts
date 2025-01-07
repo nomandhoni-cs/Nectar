@@ -1,5 +1,5 @@
 import Gun from "gun";
-import { Coupon } from "../types";
+import { Coupon, Vote } from "../types";
 
 // Initialize Gun with proper configuration
 export const initGun = () => {
@@ -67,4 +67,111 @@ export const subscribeToCoupons = (
   });
 
   return () => websiteNode.off();
+};
+
+export type VoteType = "upvote" | "downvote" | "withdraw";
+
+export const handleVote = async (
+  gun: Gun,
+  website: string,
+  couponCode: string,
+  userId: string,
+  voteType: VoteType
+) => {
+  const couponNode = gun
+    .get("websites")
+    .get(website)
+    .get("coupons")
+    .get(couponCode);
+
+  const votesNode = couponNode.get("votes");
+
+  return new Promise((resolve) => {
+    votesNode.get(userId).once((existingVote: Vote | undefined) => {
+      if (voteType === "withdraw") {
+        if (!existingVote) {
+          resolve({ success: false, message: "No vote to withdraw" });
+          return;
+        }
+
+        // Decrease the appropriate count
+        const countType =
+          existingVote.voteType === "upvote" ? "upvoteCount" : "downvoteCount";
+        couponNode.get(countType).once((count: number) => {
+          couponNode.get(countType).put(Math.max(0, getGunNumber(count) - 1));
+        });
+
+        // Remove the vote
+        votesNode.get(userId).put(null);
+        resolve({ success: true, message: "Vote withdrawn" });
+        return;
+      }
+
+      // Check if user has already voted
+      if (existingVote) {
+        // User has already voted
+        if (existingVote.voteType === voteType) {
+          resolve({ success: false, message: "You've already voted" });
+          return;
+        }
+
+        // Update vote counts based on vote change
+        if (voteType === "upvote") {
+          couponNode.get("upvoteCount").once((count: number) => {
+            couponNode.get("upvoteCount").put(getGunNumber(count) + 1);
+          });
+          couponNode.get("downvoteCount").once((count: number) => {
+            couponNode
+              .get("downvoteCount")
+              .put(Math.max(0, getGunNumber(count) - 1));
+          });
+        } else {
+          couponNode.get("downvoteCount").once((count: number) => {
+            couponNode.get("downvoteCount").put(getGunNumber(count) + 1);
+          });
+          couponNode.get("upvoteCount").once((count: number) => {
+            couponNode
+              .get("upvoteCount")
+              .put(Math.max(0, getGunNumber(count) - 1));
+          });
+        }
+      } else {
+        // New vote
+        const countType =
+          voteType === "upvote" ? "upvoteCount" : "downvoteCount";
+        couponNode.get(countType).once((count: number) => {
+          couponNode.get(countType).put(getGunNumber(count) + 1);
+        });
+      }
+
+      // Record the vote
+      votesNode.get(userId).put({
+        userId,
+        voteType,
+        timestamp: new Date().toISOString(),
+      });
+
+      resolve({ success: true, message: "Vote recorded" });
+    });
+  });
+};
+
+export const getUserVote = async (
+  gun: Gun,
+  website: string,
+  couponCode: string,
+  userId: string
+): Promise<Vote | null> => {
+  return new Promise((resolve) => {
+    gun
+      .get("websites")
+      .get(website)
+      .get("coupons")
+      .get(couponCode)
+      .get("votes")
+      .get(userId)
+      .once((vote: Vote | undefined) => {
+        resolve(vote || null);
+      });
+  });
 };

@@ -1,8 +1,10 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
   initGun,
   subscribeToCoupons,
   updateCouponData,
+  getUserVote,
+  handleVote,
 } from "@/lib/utils/gunUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,6 +12,16 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "./ui/scroll-area";
 import { Copy, CopyIcon, Triangle } from "lucide-react";
+import { Vote } from "@/lib/types";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { format } from "date-fns";
+import { CalendarIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 // Initialize Gun
 const gun = initGun();
@@ -35,6 +47,46 @@ const CouponSuggestions = () => {
     description: "",
     expiration: "",
   });
+  const [userVotes, setUserVotes] = useState<Record<string, Vote>>({});
+  const [userData, setUserData] = useState<{
+    userId: string;
+    username: string;
+  }>();
+  const [date, setDate] = React.useState<Date>();
+
+  // Load user data
+  useEffect(() => {
+    const loadUserData = async () => {
+      const data = await browser.storage.local.get(["userId", "username"]);
+      if (data.userId && data.username) {
+        setUserData(data);
+      }
+    };
+    loadUserData();
+  }, []);
+
+  // Load user votes when coupons change
+  useEffect(() => {
+    const loadUserVotes = async () => {
+      if (!userData?.userId || !currentWebsite) return;
+
+      const votes: Record<string, Vote> = {};
+      for (const coupon of coupons) {
+        const vote = await getUserVote(
+          gun,
+          currentWebsite,
+          coupon.code,
+          userData.userId
+        );
+        if (vote) {
+          votes[coupon.code] = vote;
+        }
+      }
+      setUserVotes(votes);
+    };
+
+    loadUserVotes();
+  }, [coupons, currentWebsite, userData?.userId]);
 
   useEffect(() => {
     // Get the current tab URL
@@ -126,51 +178,92 @@ const CouponSuggestions = () => {
         }
       });
   };
-  const handleUpvote = (coupon: Coupon) => {
-    gun
-      .get("websites")
-      .get(currentWebsite)
-      .get("coupons")
-      .get(coupon.code)
-      .get("upvoteCount")
-      .once((currentCount) => {
-        // Convert to number and increment
-        const newCount = (Number(currentCount) || 0) + 1;
-        // Set the new count
-        gun
-          .get("websites")
-          .get(currentWebsite)
-          .get("coupons")
-          .get(coupon.code)
-          .get("upvoteCount")
-          .put(newCount);
-      });
-  };
 
-  const handleDownvote = (coupon: Coupon) => {
-    gun
-      .get("websites")
-      .get(currentWebsite)
-      .get("coupons")
-      .get(coupon.code)
-      .get("downvoteCount")
-      .once((currentCount) => {
-        // Convert to number and increment
-        const newCount = (Number(currentCount) || 0) + 1;
-        // Set the new count
-        gun
-          .get("websites")
-          .get(currentWebsite)
-          .get("coupons")
-          .get(coupon.code)
-          .get("downvoteCount")
-          .put(newCount);
-      });
+  const handleVoteClick = async (
+    coupon: Coupon,
+    voteType: "upvote" | "downvote"
+  ) => {
+    if (!userData?.userId) {
+      alert("Please log in to vote");
+      return;
+    }
+
+    const result = await handleVote(
+      gun,
+      currentWebsite,
+      coupon.code,
+      userData.userId,
+      voteType
+    );
+
+    if (!result.success) {
+      alert(result.message);
+    }
   };
 
   const handleCopy = (code: string) => {
     navigator.clipboard.writeText(code);
     alert("Coupon code copied to clipboard!");
+  };
+
+  const handleWithdrawVote = async (coupon: Coupon) => {
+    if (!userData?.userId) {
+      alert("Please log in to manage votes");
+      return;
+    }
+
+    const result = await handleVote(
+      gun,
+      currentWebsite,
+      coupon.code,
+      userData.userId,
+      "withdraw"
+    );
+
+    if (!result.success) {
+      alert(result.message);
+    }
+  };
+
+  const renderVoteButtons = (coupon: Coupon) => {
+    const userVote = userVotes[coupon.code];
+
+    return (
+      <div className="flex space-x-2 mt-2">
+        <Button
+          variant={userVote?.voteType === "upvote" ? "default" : "outline"}
+          size="sm"
+          onClick={() => handleVoteClick(coupon, "upvote")}
+          disabled={userVote?.voteType === "downvote"}
+        >
+          <Triangle className="h-4 w-4" /> {coupon.upvoteCount}
+        </Button>
+        <Button
+          variant={userVote?.voteType === "downvote" ? "default" : "outline"}
+          size="sm"
+          onClick={() => handleVoteClick(coupon, "downvote")}
+          disabled={userVote?.voteType === "upvote"}
+        >
+          <Triangle className="h-4 w-4 rotate-180" /> {coupon.downvoteCount}
+        </Button>
+        {userVote && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleWithdrawVote(coupon)}
+          >
+            Withdraw Vote
+          </Button>
+        )}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handleCopy(coupon.code)}
+        >
+          <CopyIcon className="h-4 w-4" />
+        </Button>
+      </div>
+    );
   };
 
   return (
@@ -205,13 +298,42 @@ const CouponSuggestions = () => {
               }
               required
             />
-            <Input
-              placeholder="Expiration (YYYY-MM-DD)"
-              value={newCoupon.expiration}
-              onChange={(e) =>
-                setNewCoupon({ ...newCoupon, expiration: e.target.value })
-              }
-            />
+            <div className="grid gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !date && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {date ? (
+                      format(date, "PPP")
+                    ) : (
+                      <span>Pick an expiration date</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={date}
+                    onSelect={(newDate) => {
+                      setDate(newDate);
+                      if (newDate) {
+                        setNewCoupon({
+                          ...newCoupon,
+                          expiration: newDate.toISOString(),
+                        });
+                      }
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
             <Button type="submit" className="w-full">
               Save Coupon
             </Button>
@@ -229,33 +351,7 @@ const CouponSuggestions = () => {
                 <p>{coupon.description}</p>
                 <p>Expires: {coupon.expiration || "N/A"}</p>
                 <p>Status: {coupon.status}</p>
-                <div className="flex space-x-2 mt-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleUpvote(coupon)}
-                  >
-                    Upvote
-                    <Triangle direction="up" className="h-4 w-4" />{" "}
-                    {coupon.upvoteCount}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDownvote(coupon)}
-                  >
-                    Downvote{" "}
-                    <Triangle direction="down" className="h-4 w-4 rotate-180" />{" "}
-                    {coupon.downvoteCount}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleCopy(coupon.code)}
-                  >
-                    <CopyIcon className="h-4 w-4" />
-                  </Button>
-                </div>
+                {renderVoteButtons(coupon)}
               </div>
             ))}
           </ScrollArea>

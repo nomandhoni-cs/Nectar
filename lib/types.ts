@@ -33,3 +33,15 @@ export interface CouponFormData {
   categories: string[];
   termsAndConditions: string;
 }
+
+export interface Vote {
+  userId: string;
+  voteType: "upvote" | "downvote";
+  timestamp: string;
+}
+
+export interface CouponVotes {
+  [couponId: string]: {
+    [userId: string]: Vote;
+  };
+}
